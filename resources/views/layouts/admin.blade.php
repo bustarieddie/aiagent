@@ -23,6 +23,7 @@
                         ['admin.conversations',  'Conversations',  '💬'],
                         ['admin.leads',          'Leads',          '👥'],
                         ['admin.patients',       'Patients',       '🧑‍⚕️'],
+                        ['admin.automation',     'Automation',     '🤖'],
                     ];
                 @endphp
                 @foreach ($nav as [$route, $label, $icon])

@@ -1,0 +1,49 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AutomationRule;
+use Illuminate\Http\Request;
+
+class AutomationController extends Controller {
+    public function index() {
+        return view('admin.automation');
+    }
+
+    public function list() {
+        $rules = AutomationRule::orderByDesc('is_active')->orderByDesc('id')->get();
+        return response()->json(['rules' => $rules]);
+    }
+
+    public function store(Request $request) {
+        $data = $this->validated($request);
+        $rule = AutomationRule::create($data);
+        return response()->json($rule);
+    }
+
+    public function update(Request $request, AutomationRule $rule) {
+        $rule->update($this->validated($request));
+        return response()->json($rule);
+    }
+
+    public function toggle(AutomationRule $rule) {
+        $rule->update(['is_active' => !$rule->is_active]);
+        return response()->json($rule);
+    }
+
+    public function destroy(AutomationRule $rule) {
+        $rule->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    private function validated(Request $request): array {
+        return $request->validate([
+            'name' => 'required|string|max:100',
+            'trigger_type' => 'required|in:keyword_in,no_reply_hours,new_lead',
+            'trigger_config' => 'nullable|array',
+            'action_type' => 'required|in:send_message,set_stage,set_tier,takeover,add_tag',
+            'action_config' => 'nullable|array',
+            'is_active' => 'boolean',
+        ]);
+    }
+}

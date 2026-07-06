@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FlagController;
@@ -29,6 +30,8 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
     Route::get('/patients/{phone}', [PatientController::class, 'show'])
         ->where('phone', '.*')->name('patient.detail');
 
+    Route::get('/automation', [AutomationController::class, 'index'])->name('automation');
+
     // JSON API for the Blade pages' inline fetch calls
     Route::prefix('api')->group(function () {
         Route::get('/conversations', [ConversationController::class, 'list']);
@@ -51,5 +54,12 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
 
         Route::get('/media/{phoneDir}/{filename}', [MediaController::class, 'show']);
         Route::delete('/media/{phoneDir}/{filename}', [MediaController::class, 'destroy']);
+
+        // Automation rules
+        Route::get('/automation', [AutomationController::class, 'list']);
+        Route::post('/automation', [AutomationController::class, 'store']);
+        Route::patch('/automation/{rule}', [AutomationController::class, 'update']);
+        Route::post('/automation/{rule}/toggle', [AutomationController::class, 'toggle']);
+        Route::delete('/automation/{rule}', [AutomationController::class, 'destroy']);
     });
 });
