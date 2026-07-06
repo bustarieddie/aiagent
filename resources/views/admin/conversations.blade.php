@@ -92,11 +92,11 @@
                                 </div>
                             </template>
                             <div :class="m.direction === 'in' ? 'justify-start' : 'justify-end'" class="flex">
-                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="max-w-[65%] rounded-lg px-2.5 py-1.5 text-sm whitespace-pre-line shadow-sm">
+                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="max-w-[65%] w-fit rounded-lg px-2 py-1.5 text-sm whitespace-pre-line shadow-sm">
                                     <template x-if="m.media_url">
                                         <img :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md mb-1 object-contain bg-black/5" />
                                     </template>
-                                    <div x-text="m.body" class="leading-snug"></div>
+                                    <div x-text="cleanBody(m.body)" class="leading-snug break-words"></div>
                                     <div :class="m.direction === 'in' ? 'text-gray-400' : 'text-white/80'" class="text-[10px] mt-0.5 text-right">
                                         <span x-show="m.direction === 'out'" class="mr-1 uppercase tracking-wide" x-text="m.source === 'staff' ? 'staff' : 'bot'"></span>
                                         <span x-text="formatTime(msgTs(m))"></span>
@@ -224,6 +224,11 @@ function conversationsPage() {
         },
         msgTs(m) {
             return m.timestamp || m.ts || m.created_at || m.received_at || m.sent_at || null;
+        },
+        cleanBody(s) {
+            if (!s) return '';
+            // Trim leading/trailing whitespace + collapse 3+ blank lines to 2.
+            return String(s).trim().replace(/\n{3,}/g, '\n\n');
         },
         parseTs(v) {
             if (!v) return null;
