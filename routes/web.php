@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AutomationController;
+use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FlagController;
@@ -34,6 +35,7 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
     Route::get('/panels', [PanelController::class, 'index'])->name('panels');
 
     Route::get('/automation', [AutomationController::class, 'index'])->name('automation');
+    Route::get('/broadcast', [BroadcastController::class, 'index'])->name('broadcast');
 
     // JSON API for the Blade pages' inline fetch calls
     Route::prefix('api')->group(function () {
@@ -72,5 +74,19 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::patch('/panels/{panel}', [PanelController::class, 'update']);
         Route::post('/panels/{panel}/toggle', [PanelController::class, 'toggle']);
         Route::delete('/panels/{panel}', [PanelController::class, 'destroy']);
+
+        // Broadcast
+        Route::get('/broadcasts/audience', [BroadcastController::class, 'audience']);
+        Route::get('/broadcasts/history', [BroadcastController::class, 'history']);
+        Route::post('/broadcasts', [BroadcastController::class, 'store']);
+        Route::post('/broadcasts/{broadcast}/send-one', [BroadcastController::class, 'sendOne']);
+        Route::post('/broadcasts/{broadcast}/finalize', [BroadcastController::class, 'finalize']);
+        Route::post('/broadcasts/{broadcast}/cancel', [BroadcastController::class, 'cancel']);
+
+        // Message templates (lokal)
+        Route::get('/templates', [BroadcastController::class, 'templates']);
+        Route::post('/templates', [BroadcastController::class, 'storeTemplate']);
+        Route::patch('/templates/{template}', [BroadcastController::class, 'updateTemplate']);
+        Route::delete('/templates/{template}', [BroadcastController::class, 'destroyTemplate']);
     });
 });
