@@ -91,8 +91,8 @@
                                     <span class="bg-white/80 text-gray-600 text-[11px] px-3 py-1 rounded-md shadow-sm" x-text="formatDate(msgTs(m))"></span>
                                 </div>
                             </template>
-                            <div :class="m.direction === 'in' ? 'justify-start' : 'justify-end'" class="flex">
-                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="rounded-lg px-2 py-1 shadow-sm">
+                            <div :class="m.direction === 'in' ? 'justify-start' : 'justify-end'" class="flex items-start">
+                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="rounded-lg px-2 py-1 shadow-sm inline-block">
                                     <template x-if="m.media_url">
                                         <img :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md mb-1 object-contain bg-black/5" />
                                     </template>
