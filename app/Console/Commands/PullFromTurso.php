@@ -7,17 +7,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
-/**
- * One-time data migration: pull Prisma-managed tables from Turso libSQL
- * into the local MySQL schema.
- *
- * Uses Turso HTTP API (libsql-server v2 protocol).
- */
 class PullFromTurso extends Command {
     protected $signature = 'turso:pull {--truncate : truncate MySQL tables before insert}';
     protected $description = 'Import all data from Turso (Prisma-era) into local MySQL';
 
-    /** Table name (Turso, camelCase Prisma) => target Laravel MySQL table + column mapping. */
     protected array $tables = [
         'Booking' => 'bookings',
         'Slot' => 'slots',
@@ -41,13 +34,11 @@ class PullFromTurso extends Command {
             return 1;
         }
 
-        // Turso HTTP protocol expects URL of the form https://<db>.turso.io
-        // (drop libsql://). Endpoint for pipelined SQL is /v2/pipeline.
         $httpUrl = preg_replace('/^libsql:/', 'https:', $url);
         $endpoint = $httpUrl . '/v2/pipeline';
 
         foreach ($this->tables as $tursoTable => $mysqlTable) {
-            $this->info("Fetching {$tursoTable} → {$mysqlTable}");
+            $this->info("Fetching {$tursoTable} -> {$mysqlTable}");
             $rows = $this->fetchAll($endpoint, $token, $tursoTable);
             $this->info("  " . count($rows) . " rows");
             if (empty($rows)) continue;
@@ -63,7 +54,7 @@ class PullFromTurso extends Command {
             }
         }
 
-        $this->info('✅ Done.');
+        $this->info('Done.');
         return 0;
     }
 
@@ -97,6 +88,11 @@ class PullFromTurso extends Command {
         $out = [];
         foreach ($row as $k => $v) {
             $snake = Str::snake($k);
+            $snake = str_replace(
+                ['_a_i', '_m_c', '_m_y_k_a_d', '_p_r_p', '_h_m_g_b', '_i_v_r'],
+                ['_ai', '_mc', '_my_kad', '_prp', '_hmgb', '_ivr'],
+                $snake
+            );
             $out[$snake] = $v;
         }
         return $out;
