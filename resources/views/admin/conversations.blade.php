@@ -92,12 +92,12 @@
                                 </div>
                             </template>
                             <div :class="m.direction === 'in' ? 'justify-start' : 'justify-end'" class="flex">
-                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="max-w-[65%] w-fit rounded-lg px-2 py-1.5 text-sm whitespace-pre-line shadow-sm">
+                                <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="rounded-lg px-2 py-1 shadow-sm">
                                     <template x-if="m.media_url">
                                         <img :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md mb-1 object-contain bg-black/5" />
                                     </template>
-                                    <div x-text="cleanBody(m.body)" class="leading-snug break-words"></div>
-                                    <div :class="m.direction === 'in' ? 'text-gray-400' : 'text-white/80'" class="text-[10px] mt-0.5 text-right">
+                                    <div x-text="cleanBody(m.body)" class="text-sm leading-snug whitespace-pre-line break-words"></div>
+                                    <div :class="m.direction === 'in' ? 'text-gray-400' : 'text-white/80'" class="text-[10px] mt-0.5 text-right leading-none">
                                         <span x-show="m.direction === 'out'" class="mr-1 uppercase tracking-wide" x-text="m.source === 'staff' ? 'staff' : 'bot'"></span>
                                         <span x-text="formatTime(msgTs(m))"></span>
                                     </div>
@@ -216,8 +216,9 @@ function conversationsPage() {
             return m.source === 'staff' ? 'bg-blue-500 text-white rounded-tr-none' : 'text-white rounded-tr-none';
         },
         bubbleStyle(m) {
-            if (m.direction === 'out' && m.source !== 'staff') return 'background-color: #005c4b;';
-            return '';
+            let s = 'width: fit-content; max-width: 65%;';
+            if (m.direction === 'out' && m.source !== 'staff') s += ' background-color: #005c4b;';
+            return s;
         },
         mediaProxy(botPath) {
             return botPath.replace(/^\/admin\/api\/media\//, '/admin/whatsapp-agent/api/media/');
@@ -227,8 +228,12 @@ function conversationsPage() {
         },
         cleanBody(s) {
             if (!s) return '';
-            // Trim leading/trailing whitespace + collapse 3+ blank lines to 2.
-            return String(s).trim().replace(/\n{3,}/g, '\n\n');
+            return String(s)
+                .replace(/\r\n?/g, '\n')
+                .replace(/[​-‍﻿ ]/g, ' ')
+                .replace(/[ \t]+$/gm, '')                    // strip trailing spaces on each line
+                .trim()
+                .replace(/\n{3,}/g, '\n\n');                 // collapse 3+ blank lines to 1 blank
         },
         parseTs(v) {
             if (!v) return null;
