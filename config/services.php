@@ -20,6 +20,10 @@ return [
     // Klinik Bustari admin gate + bot API
     'admin_password' => env('ADMIN_PASSWORD'),
 
+    // Comma-separated whitelist of emails allowed to login via OTP.
+    // Example: bustarieddie@gmail.com,staf1@klinikbustari.com
+    'allowed_emails' => env('ADMIN_ALLOWED_EMAILS', ''),
+
     'bot' => [
         'url' => env('PYTHON_BOT_URL', 'http://localhost:5000'),
         'admin_key' => env('PYTHON_ADMIN_KEY', ''),

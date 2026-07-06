@@ -12,9 +12,11 @@ use Illuminate\Support\Facades\Route;
 // Public — landing shortcut
 Route::get('/', fn () => redirect('/admin/whatsapp-agent'));
 
-// Login (no auth middleware)
+// Login (no auth middleware) — email → OTP flow
 Route::get('/login', [LoginController::class, 'show'])->name('login');
-Route::post('/login', [LoginController::class, 'submit'])->name('login.submit');
+Route::post('/login', [LoginController::class, 'requestOtp'])->name('login.request');
+Route::get('/login/verify', [LoginController::class, 'showVerify'])->name('login.verify.show');
+Route::post('/login/verify', [LoginController::class, 'verifyOtp'])->name('login.verify.submit');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Admin (all behind AdminAuth middleware)
