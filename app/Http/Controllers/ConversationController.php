@@ -19,6 +19,12 @@ class ConversationController extends Controller {
                 ->header('Content-Type', $resp->header('Content-Type', 'application/json'));
         }
         $payload = $resp->json();
+
+        // Single-conversation view (bot returns {messages: [...]}) — pass through.
+        if (is_array($payload) && isset($payload['messages'])) {
+            return response()->json($payload);
+        }
+
         $convos = $payload['conversations'] ?? (is_array($payload) ? $payload : []);
         $phones = collect($convos)->pluck('phone')->filter()->unique()->all();
         $flags = ConversationFlag::whereIn('phone', $phones)->get()->keyBy('phone');
