@@ -40,6 +40,7 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::patch('/flags/{phone}', [FlagController::class, 'update'])->where('phone', '.*');
 
         Route::get('/leads', [LeadController::class, 'list']);
+        Route::get('/leads/export', [LeadController::class, 'export']);
         Route::patch('/leads/{phone}', [LeadController::class, 'update'])->where('phone', '.*');
 
         Route::get('/patients', [PatientController::class, 'list']);

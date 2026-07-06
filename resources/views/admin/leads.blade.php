@@ -2,9 +2,25 @@
 @section('title', 'Leads')
 @section('content')
 <div class="p-6 space-y-4" x-data="leadsPage()" x-init="load()">
-    <div>
-        <h2 class="text-xl font-semibold text-gray-900">Leads</h2>
-        <p class="text-sm text-gray-500">Pesakit & lead daripada Python bot.</p>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900">Leads</h2>
+            <p class="text-sm text-gray-500">Pesakit & lead daripada Python bot.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1">
+                <span class="text-xs text-gray-500">Dari</span>
+                <input type="date" x-model="fromDate" class="text-xs border-0 focus:outline-none" />
+                <span class="text-xs text-gray-500">ke</span>
+                <input type="date" x-model="toDate" class="text-xs border-0 focus:outline-none" />
+            </div>
+            <button @click="exportCsv()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg px-4 py-1.5 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                Export CSV
+            </button>
+        </div>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-wrap gap-2">
@@ -87,6 +103,7 @@
 function leadsPage() {
     return {
         rows: [], q: '', tier: '', stage: '', service: '',
+        fromDate: '', toDate: '',
         async load() {
             const url = new URL('/admin/whatsapp-agent/api/leads', window.location.origin);
             if (this.q) url.searchParams.set('q', this.q);
@@ -97,6 +114,16 @@ function leadsPage() {
             const r = await fetch(url, {credentials: 'same-origin'});
             const d = await r.json();
             this.rows = d.leads || [];
+        },
+        exportCsv() {
+            const url = new URL('/admin/whatsapp-agent/api/leads/export', window.location.origin);
+            if (this.q) url.searchParams.set('q', this.q);
+            if (this.tier) url.searchParams.set('tier', this.tier);
+            if (this.stage) url.searchParams.set('stage', this.stage);
+            if (this.service) url.searchParams.set('service', this.service);
+            if (this.fromDate) url.searchParams.set('from', this.fromDate);
+            if (this.toDate) url.searchParams.set('to', this.toDate);
+            window.location = url.toString();
         },
         async updateField(l, field, value) {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
