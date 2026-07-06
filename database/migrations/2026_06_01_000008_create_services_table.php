@@ -15,7 +15,7 @@ return new class extends Migration {
             $t->text('short_desc')->nullable();
             $t->text('long_desc')->nullable();
             $t->integer('duration_min')->nullable();
-            $t->text('price_tiers')->default('[]');
+            $t->text('price_tiers')->nullable();
             $t->integer('base_price_myr')->nullable();
             $t->string('cta_label')->nullable();
             $t->string('cta_intent')->nullable();

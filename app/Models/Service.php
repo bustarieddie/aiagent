@@ -13,7 +13,10 @@ class Service extends Model {
         'visible_to_ai' => 'boolean',
     ];
     protected static function booted() {
-        static::creating(fn ($m) => $m->id ??= (string) \Illuminate\Support\Str::uuid());
+        static::creating(function ($m) {
+            $m->id ??= (string) \Illuminate\Support\Str::uuid();
+            $m->price_tiers ??= '[]';
+        });
     }
 
     public function getPriceTiersArrayAttribute(): array {
