@@ -41,6 +41,8 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
 
         Route::get('/leads', [LeadController::class, 'list']);
         Route::get('/leads/export', [LeadController::class, 'export']);
+        Route::get('/leads/classifiable', [LeadController::class, 'classifiable']);
+        Route::post('/leads/{phone}/classify', [LeadController::class, 'classifyOne'])->where('phone', '.*');
         Route::patch('/leads/{phone}', [LeadController::class, 'update'])->where('phone', '.*');
 
         Route::get('/patients', [PatientController::class, 'list']);

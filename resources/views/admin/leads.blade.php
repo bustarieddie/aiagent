@@ -14,12 +14,42 @@
                 <span class="text-xs text-gray-500">ke</span>
                 <input type="date" x-model="toDate" class="text-xs border-0 focus:outline-none" />
             </div>
+            <button @click="startAutoClassify(false)" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg px-4 py-1.5 flex items-center gap-1.5">
+                🤖 <span>Auto-Classify Services</span>
+            </button>
             <button @click="exportCsv()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg px-4 py-1.5 flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                 </svg>
                 Export CSV
             </button>
+        </div>
+    </div>
+
+    {{-- Auto-classify progress modal --}}
+    <div x-show="classifyOpen" x-cloak class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="classifyOpen = false">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">🤖 AI Classifying Leads</h3>
+                <button @click="classifyOpen = false; classifyCancel = true" class="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <p class="text-sm text-gray-600">
+                <span class="font-medium text-gray-900" x-text="classifyDone"></span>
+                / <span x-text="classifyTotal"></span> selesai
+                <span x-show="classifyDone && classifyTotal" class="text-gray-400">
+                    (<span x-text="Math.round((classifyDone/Math.max(1,classifyTotal))*100)"></span>%)
+                </span>
+            </p>
+            <div class="mt-3 bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div class="bg-purple-500 h-full transition-all duration-300" :style="`width: ${(classifyDone/Math.max(1,classifyTotal)*100)||0}%`"></div>
+            </div>
+            <div x-show="classifyCurrent" class="mt-3 text-xs text-gray-500 font-mono">
+                Sedang scan: <span x-text="classifyCurrent"></span>
+            </div>
+            <div x-show="classifyLastResult" class="mt-2 text-xs text-gray-600 border-t border-gray-100 pt-2" x-html="classifyLastResult"></div>
+            <div x-show="classifyDone === classifyTotal && classifyTotal > 0" class="mt-3 text-sm text-emerald-700 font-medium">
+                ✓ Siap! <span x-text="classifyHits"></span> lead di-classify, <span x-text="classifyMisses"></span> tak cukup info.
+            </div>
         </div>
     </div>
 
@@ -104,6 +134,9 @@ function leadsPage() {
     return {
         rows: [], q: '', tier: '', stage: '', service: '',
         fromDate: '', toDate: '',
+        classifyOpen: false, classifyDone: 0, classifyTotal: 0,
+        classifyCurrent: '', classifyLastResult: '',
+        classifyHits: 0, classifyMisses: 0, classifyCancel: false,
         async load() {
             const url = new URL('/admin/whatsapp-agent/api/leads', window.location.origin);
             if (this.q) url.searchParams.set('q', this.q);
@@ -124,6 +157,60 @@ function leadsPage() {
             if (this.fromDate) url.searchParams.set('from', this.fromDate);
             if (this.toDate) url.searchParams.set('to', this.toDate);
             window.location = url.toString();
+        },
+        async startAutoClassify(force) {
+            const overwrite = force || confirm(
+                'Auto-classify servis untuk lead yang belum ada servis?\n\n' +
+                'OK  = classify yang kosong sahaja\n' +
+                'Cancel = classify SEMUA (overwrite yang sedia ada)'
+            );
+            const url = new URL('/admin/whatsapp-agent/api/leads/classifiable', window.location.origin);
+            if (!overwrite) url.searchParams.set('force', '1');
+            const r = await fetch(url, {credentials: 'same-origin'});
+            const {phones, total} = await r.json();
+
+            if (!total) {
+                alert('Tak ada lead untuk classify.');
+                return;
+            }
+
+            this.classifyOpen = true;
+            this.classifyTotal = total;
+            this.classifyDone = 0;
+            this.classifyHits = 0;
+            this.classifyMisses = 0;
+            this.classifyCurrent = '';
+            this.classifyLastResult = '';
+            this.classifyCancel = false;
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            for (const phone of phones) {
+                if (this.classifyCancel) break;
+                this.classifyCurrent = phone;
+                try {
+                    const cr = await fetch(`/admin/whatsapp-agent/api/leads/${encodeURIComponent(phone)}/classify`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {'X-CSRF-TOKEN': csrfToken},
+                    });
+                    const res = await cr.json();
+                    if (res.ok) {
+                        this.classifyHits++;
+                        this.classifyLastResult = `<span class="text-emerald-700">✓ ${phone}</span> → <b>${res.service}</b> <span class="text-gray-400">(${res.confidence})</span> — ${res.reason || ''}`;
+                        // Update row locally
+                        const idx = this.rows.findIndex(r => r.phone === phone);
+                        if (idx >= 0) this.rows[idx].service_interested = res.service;
+                    } else {
+                        this.classifyMisses++;
+                        this.classifyLastResult = `<span class="text-gray-400">— ${phone}</span> tak diclassify (${res.reason || 'no info'})`;
+                    }
+                } catch (e) {
+                    this.classifyMisses++;
+                    this.classifyLastResult = `<span class="text-rose-600">✗ ${phone}</span> error`;
+                }
+                this.classifyDone++;
+            }
+            this.classifyCurrent = '';
         },
         async updateField(l, field, value) {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;

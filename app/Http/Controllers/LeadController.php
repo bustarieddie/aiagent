@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BotApi;
+use App\Services\LeadClassifier;
 use Illuminate\Http\Request;
 
 class LeadController extends Controller {
@@ -20,6 +21,53 @@ class LeadController extends Controller {
         $resp = $bot->patch('/admin/api/leads/' . urlencode($phone), $request->all());
         return response($resp->body(), $resp->status())
             ->header('Content-Type', 'application/json');
+    }
+
+    /** Return phones needing classification (no service_interested yet, unless force). */
+    public function classifiable(Request $request, BotApi $bot) {
+        $force = $request->query('force') === '1';
+        $resp = $bot->get('/admin/api/leads', ['limit' => 5000]);
+        if (!$resp->ok()) return response()->json(['phones' => [], 'total' => 0]);
+        $leads = $resp->json()['leads'] ?? [];
+        $phones = collect($leads)
+            ->filter(fn ($l) => $force || empty($l['service_interested'] ?? null))
+            ->pluck('phone')
+            ->filter()
+            ->values()->all();
+        return response()->json(['phones' => $phones, 'total' => count($phones)]);
+    }
+
+    /** Classify a single phone via Claude, then PATCH bot API. */
+    public function classifyOne(string $phone, LeadClassifier $classifier, BotApi $bot) {
+        if (empty(config('services.anthropic.api_key'))) {
+            return response()->json([
+                'ok' => false, 'phone' => $phone,
+                'error' => 'ANTHROPIC_API_KEY not set in Laravel .env',
+            ], 400);
+        }
+
+        $result = $classifier->classify($phone);
+        if (!$result) {
+            return response()->json(['ok' => false, 'phone' => $phone, 'reason' => 'no messages / API error']);
+        }
+        if (empty($result['service'])) {
+            return response()->json([
+                'ok' => false, 'phone' => $phone,
+                'confidence' => $result['confidence'] ?? 'low',
+                'reason' => $result['reason'] ?? 'AI unsure',
+            ]);
+        }
+
+        $bot->patch('/admin/api/leads/' . urlencode($phone), [
+            'service_interested' => $result['service'],
+        ]);
+
+        return response()->json([
+            'ok' => true, 'phone' => $phone,
+            'service' => $result['service'],
+            'confidence' => $result['confidence'] ?? 'medium',
+            'reason' => $result['reason'] ?? '',
+        ]);
     }
 
     /** Export leads as CSV, optionally filtered by date range (created_at). */

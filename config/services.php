@@ -42,4 +42,10 @@ return [
         'url' => env('TURSO_URL', ''),
         'auth_token' => env('TURSO_AUTH_TOKEN', ''),
     ],
+
+    // Anthropic (used by LeadClassifier for AI auto-tagging).
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY', ''),
+        'model'   => env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
+    ],
 ];
