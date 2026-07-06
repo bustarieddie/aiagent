@@ -11,7 +11,22 @@ class AutomationController extends Controller {
     }
 
     public function list() {
-        $rules = AutomationRule::orderByDesc('is_active')->orderByDesc('id')->get();
+        $rules = AutomationRule::orderByDesc('is_system')->orderBy('id')->get()
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'slug' => $r->slug,
+                'name' => $r->name,
+                'icon' => $r->icon,
+                'description' => $r->description,
+                'schedule_label' => $r->schedule_label,
+                'schedule_cron' => $r->schedule_cron,
+                'is_active' => $r->is_active,
+                'is_system' => $r->is_system,
+                'fire_count' => $r->fire_count,
+                'runs_last_7d' => $r->runs_last_7d,
+                'sent_last_7d' => $r->sent_last_7d,
+                'last_fired_at' => optional($r->last_fired_at)->diffForHumans(),
+            ]);
         return response()->json(['rules' => $rules]);
     }
 
@@ -32,6 +47,9 @@ class AutomationController extends Controller {
     }
 
     public function destroy(AutomationRule $rule) {
+        if ($rule->is_system) {
+            return response()->json(['error' => 'Cannot delete system rule'], 403);
+        }
         $rule->delete();
         return response()->json(['ok' => true]);
     }
