@@ -16,34 +16,34 @@
             <p class="text-sm text-gray-500 mt-0.5">WhatsApp AI Agent Admin</p>
         </div>
 
-        @if (($stage ?? 'email') === 'email')
+        @if (($stage ?? 'phone') === 'phone')
             <form method="POST" action="{{ route('login.request') }}" class="space-y-4">
                 @csrf
                 <label class="block text-sm">
-                    <span class="text-gray-700">Email admin</span>
+                    <span class="text-gray-700">Nombor WhatsApp</span>
                     <input
-                        type="email" name="email" value="{{ old('email') }}"
-                        placeholder="admin@klinikbustari.com"
+                        type="tel" name="phone" value="{{ old('phone') }}"
+                        placeholder="011-2233 4455"
                         required autofocus
                         class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                 </label>
-                @error('email')
+                @error('phone')
                     <p class="text-xs text-red-600">{{ $message }}</p>
                 @enderror
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg py-2">
-                    Hantar Kod OTP
+                    Hantar Kod OTP via WhatsApp
                 </button>
                 <p class="text-[11px] text-center text-gray-400">
-                    Kod 6-digit akan dihantar ke email anda.
+                    Kod 6-digit akan dihantar ke WhatsApp anda.
                 </p>
             </form>
         @else
             <form method="POST" action="{{ route('login.verify.submit') }}" class="space-y-4">
                 @csrf
                 <p class="text-sm text-gray-600 text-center">
-                    Kod OTP dihantar ke<br>
-                    <strong class="text-gray-900">{{ $email }}</strong>
+                    Kod OTP dihantar ke WhatsApp<br>
+                    <strong class="text-gray-900 font-mono">{{ $phone }}</strong>
                 </p>
                 <label class="block text-sm">
                     <span class="text-gray-700">6-digit code</span>
@@ -61,7 +61,7 @@
                     Verify & Login
                 </button>
                 <a href="{{ route('login') }}" class="block text-center text-xs text-gray-500 hover:text-gray-700">
-                    ← Guna email lain
+                    ← Guna nombor lain
                 </a>
             </form>
         @endif

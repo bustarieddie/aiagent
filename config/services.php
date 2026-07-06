@@ -20,9 +20,15 @@ return [
     // Klinik Bustari admin gate + bot API
     'admin_password' => env('ADMIN_PASSWORD'),
 
-    // Comma-separated whitelist of emails allowed to login via OTP.
-    // Example: bustarieddie@gmail.com,staf1@klinikbustari.com
-    'allowed_emails' => env('ADMIN_ALLOWED_EMAILS', ''),
+    // Comma-separated whitelist of phone numbers allowed to receive OTP + login.
+    // Any Malaysian format works — 011-2233 4455, 60112233445, +60112233445.
+    // Normalized to E.164 (+60...) before comparison.
+    'allowed_phones' => env('ADMIN_ALLOWED_PHONES', ''),
+
+    // WaSenderAPI — used to deliver login OTPs via WhatsApp.
+    'wasender' => [
+        'api_key' => env('WASENDER_API_KEY', ''),
+    ],
 
     'bot' => [
         'url' => env('PYTHON_BOT_URL', 'http://localhost:5000'),
