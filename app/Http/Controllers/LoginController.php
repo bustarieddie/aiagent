@@ -34,9 +34,9 @@ class LoginController extends Controller {
             ]);
         }
 
-        // Rate limit — max 3 OTP per email per hour
+        // Rate limit — max 10 OTP per email per hour (relaxed for testing)
         $key = 'otp:' . sha1($email);
-        if (RateLimiter::tooManyAttempts($key, 3)) {
+        if (RateLimiter::tooManyAttempts($key, 10)) {
             $seconds = RateLimiter::availableIn($key);
             return back()->withErrors([
                 'email' => "Terlalu banyak permintaan. Cuba lagi dalam {$seconds} saat.",
