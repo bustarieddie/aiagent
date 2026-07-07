@@ -85,6 +85,11 @@ class AutomationRule extends Model {
                 ['key' => 'include_appointments', 'label' => 'Sertakan appointments', 'type' => 'toggle', 'default' => true],
                 ['key' => 'include_conversion', 'label' => 'Sertakan conversion rate', 'type' => 'toggle', 'default' => true],
             ],
+            'telegram_monitor' => [
+                ['key' => 'include_incoming', 'label' => 'Sertakan mesej masuk (patient)', 'type' => 'toggle', 'default' => true],
+                ['key' => 'include_bot', 'label' => 'Sertakan reply bot (AI)', 'type' => 'toggle', 'default' => true],
+                ['key' => 'include_staff', 'label' => 'Sertakan reply staf', 'type' => 'toggle', 'default' => true],
+            ],
             'database_backup' => [
                 ['key' => 'backup_time', 'label' => 'Masa backup', 'type' => 'time', 'default' => '03:00'],
                 ['key' => 'retention_days', 'label' => 'Simpan backup (hari)', 'type' => 'number', 'default' => 14, 'min' => 1],

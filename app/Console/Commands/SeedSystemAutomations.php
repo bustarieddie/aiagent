@@ -72,6 +72,16 @@ class SeedSystemAutomations extends Command {
                 'action_type' => 'send_message',
             ],
             [
+                'slug' => 'telegram_monitor',
+                'name' => 'Telegram Monitor',
+                'icon' => '📡',
+                'description' => 'Mirror semua mesej WhatsApp ke group Telegram staf (near real-time).',
+                'schedule_label' => 'Setiap minit',
+                'schedule_cron' => '* * * * *',
+                'trigger_type' => 'new_lead',
+                'action_type' => 'send_message',
+            ],
+            [
                 'slug' => 'database_backup',
                 'name' => 'Database Backup',
                 'icon' => '💾',
