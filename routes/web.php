@@ -7,6 +7,7 @@ use App\Http\Controllers\FlagController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\MediaController;
+use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PatientController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,8 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
     Route::get('/patients', [PatientController::class, 'index'])->name('patients');
     Route::get('/patients/{phone}', [PatientController::class, 'show'])
         ->where('phone', '.*')->name('patient.detail');
+
+    Route::get('/panels', [PanelController::class, 'index'])->name('panels');
 
     Route::get('/automation', [AutomationController::class, 'index'])->name('automation');
 
@@ -62,5 +65,12 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::post('/automation/{rule}/toggle', [AutomationController::class, 'toggle']);
         Route::post('/automation/{rule}/settings', [AutomationController::class, 'saveSettings']);
         Route::delete('/automation/{rule}', [AutomationController::class, 'destroy']);
+
+        // Insurance / corporate panels
+        Route::get('/panels', [PanelController::class, 'list']);
+        Route::post('/panels', [PanelController::class, 'store']);
+        Route::patch('/panels/{panel}', [PanelController::class, 'update']);
+        Route::post('/panels/{panel}/toggle', [PanelController::class, 'toggle']);
+        Route::delete('/panels/{panel}', [PanelController::class, 'destroy']);
     });
 });

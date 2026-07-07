@@ -23,6 +23,7 @@
                         ['admin.conversations',  'Conversations',  '💬'],
                         ['admin.leads',          'Leads',          '👥'],
                         ['admin.patients',       'Patients',       '🧑‍⚕️'],
+                        ['admin.panels',         'Panels',         '🏥'],
                         ['admin.automation',     'Automation',     '🤖'],
                     ];
                 @endphp
