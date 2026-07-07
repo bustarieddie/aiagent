@@ -25,7 +25,7 @@
                 <div @click="select(c)" :class="selected?.phone === c.phone ? 'bg-emerald-50' : 'hover:bg-gray-50'" class="px-4 py-3 cursor-pointer">
                     <div class="flex justify-between items-baseline gap-2">
                         <div class="font-medium text-gray-900 text-sm truncate" x-text="c.name || c.phone"></div>
-                        <div class="text-[10px] text-gray-400 shrink-0" x-text="formatTime(c.last_ts)"></div>
+                        <div class="text-[10px] text-gray-400 shrink-0 whitespace-nowrap" x-text="formatStamp(c.last_ts)"></div>
                     </div>
                     <div class="text-[11px] text-gray-500 font-mono" x-text="c.phone"></div>
                     <div class="text-xs text-gray-600 truncate mt-0.5" x-text="c.last_message"></div>
@@ -99,7 +99,7 @@
                                     <div x-text="cleanBody(m.body)" class="text-sm leading-snug whitespace-pre-line break-words"></div>
                                     <div :class="m.direction === 'in' ? 'text-gray-400' : 'text-white/80'" class="text-[10px] mt-0.5 text-right leading-none">
                                         <span x-show="m.direction === 'out'" class="mr-1 uppercase tracking-wide" x-text="m.source === 'staff' ? 'staff' : 'bot'"></span>
-                                        <span x-text="formatTime(msgTs(m))"></span>
+                                        <span x-text="formatStampFull(msgTs(m))"></span>
                                     </div>
                                 </div>
                             </div>
@@ -301,6 +301,24 @@ function conversationsPage() {
         // Calendar date (YYYY-MM-DD) in Malaysia time, independent of the device TZ.
         myDay(d) {
             return d.toLocaleDateString('en-CA', {timeZone: 'Asia/Kuala_Lumpur'});
+        },
+        // Full date + time in Malaysia time, e.g. "07/07/26, 13:57" — used on message bubbles.
+        formatStampFull(v) {
+            const d = this.parseTs(v);
+            if (!d) return '';
+            return d.toLocaleString('ms-MY', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur'});
+        },
+        // Smart stamp for the conversation list: time if today, "Semalam HH:MM" if
+        // yesterday, else "DD/MM/YY HH:MM" — so the date shows once it isn't today.
+        formatStamp(v) {
+            const d = this.parseTs(v);
+            if (!d) return '';
+            const time = this.formatTime(v);
+            const now = new Date();
+            const day = this.myDay(d);
+            if (day === this.myDay(now)) return time;
+            if (day === this.myDay(new Date(now.getTime() - 86400000))) return 'Semalam ' + time;
+            return d.toLocaleDateString('ms-MY', {day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Asia/Kuala_Lumpur'}) + ' ' + time;
         },
         formatDate(v) {
             const d = this.parseTs(v);
