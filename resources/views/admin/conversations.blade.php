@@ -283,24 +283,29 @@ function conversationsPage() {
         formatTime(v) {
             const d = this.parseTs(v);
             if (!d) return '';
-            return d.toLocaleTimeString('ms-MY', {hour: '2-digit', minute: '2-digit', hour12: false});
+            return d.toLocaleTimeString('ms-MY', {hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur'});
+        },
+        // Calendar date (YYYY-MM-DD) in Malaysia time, independent of the device TZ.
+        myDay(d) {
+            return d.toLocaleDateString('en-CA', {timeZone: 'Asia/Kuala_Lumpur'});
         },
         formatDate(v) {
             const d = this.parseTs(v);
             if (!d) return '';
-            const today = new Date();
-            const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-            const isSameDay = (a, b) => a.toDateString() === b.toDateString();
-            if (isSameDay(d, today)) return 'Hari ini';
-            if (isSameDay(d, yesterday)) return 'Semalam';
-            return d.toLocaleDateString('ms-MY', {day: '2-digit', month: 'short', year: 'numeric'});
+            const now = new Date();
+            const today = this.myDay(now);
+            const yesterday = this.myDay(new Date(now.getTime() - 86400000));
+            const day = this.myDay(d);
+            if (day === today) return 'Hari ini';
+            if (day === yesterday) return 'Semalam';
+            return d.toLocaleDateString('ms-MY', {day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur'});
         },
         showDateSeparator(i) {
             if (i === 0) return true;
             const prev = this.parseTs(this.msgTs(this.messages[i - 1]));
             const curr = this.parseTs(this.msgTs(this.messages[i]));
             if (!prev || !curr) return false;
-            return prev.toDateString() !== curr.toDateString();
+            return this.myDay(prev) !== this.myDay(curr);
         },
         initial(s) {
             if (!s) return '?';
