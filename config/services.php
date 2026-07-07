@@ -35,6 +35,12 @@ return [
         'admin_key' => env('PYTHON_ADMIN_KEY', ''),
     ],
 
+    // Telegram — used to mirror WhatsApp conversations to a staff Telegram group.
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
+        'monitor_chat_id' => env('TELEGRAM_MONITOR_CHAT_ID', ''),
+    ],
+
     'booking_url' => env('APPOINTMENT_BOOKING_URL', 'https://klinikbustari.com/appointment.html'),
 
     // Turso migration source (used once by artisan turso:pull)
