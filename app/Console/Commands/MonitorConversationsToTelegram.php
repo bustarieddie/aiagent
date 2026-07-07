@@ -118,6 +118,8 @@ class MonitorConversationsToTelegram extends Command {
             if ($tg->sendMessage($chatId, $text)) {
                 $state->update(['last_key' => end($keys)]);
                 $sends++;
+            } else {
+                $this->error("Telegram send failed for {$phone}: " . $tg->lastError);
             }
         }
 
