@@ -226,7 +226,15 @@ function conversationsPage() {
                 });
                 if (r.ok) {
                     this.draft = '';           // clear only on confirmed success
-                    await this.select(this.selected);
+                    const d = await r.json().catch(() => ({}));
+                    if (d.via === 'wasender' && d.message) {
+                        // Sent directly via WaSenderAPI — not in the bot thread yet,
+                        // so append optimistically instead of reloading (which would drop it).
+                        this.messages.push(d.message);
+                        this.$nextTick(() => { this.$refs.thread.scrollTop = this.$refs.thread.scrollHeight; });
+                    } else {
+                        await this.select(this.selected);   // bot recorded it — reload canonical thread
+                    }
                 } else {
                     // Keep the draft so staff don't lose their message; show why it failed.
                     let msg = `Gagal hantar (HTTP ${r.status}).`;
