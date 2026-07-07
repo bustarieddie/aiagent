@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ConversationFlag;
 use App\Services\BotApi;
+use App\Services\WaSenderClient;
 use Illuminate\Http\Request;
 
 class ConversationController extends Controller {
@@ -51,15 +52,54 @@ class ConversationController extends Controller {
         return response()->json($enriched);
     }
 
-    /** JSON API: send a manual staff reply. */
-    public function send(Request $request, BotApi $bot) {
+    /**
+     * JSON API: send a manual staff reply. Works regardless of AI / takeover state.
+     *
+     * Delivery is resilient: we try the Python bot first (so it records the message
+     * in its own DB and the thread shows it), but if the bot is unreachable or
+     * rejects the request we fall back to sending the WhatsApp message directly via
+     * WaSenderAPI — the same channel used for login OTPs — so the patient still
+     * gets the reply even when the bot is down.
+     */
+    public function send(Request $request, BotApi $bot, WaSenderClient $wa) {
         $data = $request->validate([
             'phone' => 'required|string',
             'message' => 'required|string',
         ]);
-        $resp = $bot->post('/inbox/send', $data + ['source' => 'staff']);
-        return response($resp->body(), $resp->status())
-            ->header('Content-Type', 'application/json');
+
+        // 1) Primary: route through the bot so it persists the message + sends.
+        try {
+            $resp = $bot->post('/inbox/send', $data + ['source' => 'staff']);
+            if ($resp->ok()) {
+                return response($resp->body(), 200)
+                    ->header('Content-Type', $resp->header('Content-Type', 'application/json'));
+            }
+            $botError = 'Bot menolak mesej (HTTP ' . $resp->status() . ').';
+        } catch (\Throwable $e) {
+            $botError = 'Bot tidak dapat dihubungi (' . $e->getMessage() . ').';
+        }
+
+        // 2) Fallback: send the WhatsApp message directly via WaSenderAPI.
+        if ($wa->sendText($data['phone'], $data['message'])) {
+            return response()->json([
+                'ok' => true,
+                'via' => 'wasender',
+                'note' => 'Dihantar terus via WaSenderAPI (bot tidak tersedia). Mesej mungkin tidak tersimpan dalam thread bot.',
+                'message' => [
+                    'direction' => 'out',
+                    'source' => 'staff',
+                    'body' => $data['message'],
+                    'timestamp' => now()->toIso8601String(),
+                ],
+            ]);
+        }
+
+        // 3) Both paths failed.
+        return response()->json([
+            'ok' => false,
+            'error' => 'Mesej gagal dihantar. Bot & WaSenderAPI kedua-duanya tidak tersedia.',
+            'detail' => $botError,
+        ], 502);
     }
 
     /** DELETE — nuke entire conversation (bot wipes DB + files, portal clears flag). */

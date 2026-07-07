@@ -108,10 +108,20 @@
                 </div>
 
                 {{-- Composer --}}
-                <form @submit.prevent="send()" class="shrink-0 border-t border-gray-200 bg-white p-3 flex gap-2 items-end">
-                    <textarea x-model="draft" rows="1" placeholder="Reply sebagai staff… (Enter = hantar, Shift+Enter = newline)" @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); send(); }" class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500" style="max-height: 120px;"></textarea>
-                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg px-4 py-2 shrink-0">Hantar</button>
-                </form>
+                <div class="shrink-0 border-t border-gray-200 bg-white">
+                    <div x-show="sendError" x-cloak class="px-3 pt-2 -mb-1">
+                        <div class="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
+                            <span x-text="sendError"></span>
+                            <button @click="send()" class="text-rose-700 font-semibold hover:underline shrink-0">Cuba lagi</button>
+                        </div>
+                    </div>
+                    <form @submit.prevent="send()" class="p-3 flex gap-2 items-end">
+                        <textarea x-model="draft" rows="1" placeholder="Reply sebagai staff… (Enter = hantar, Shift+Enter = newline)" @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); send(); }" class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500" style="max-height: 120px;"></textarea>
+                        <button type="submit" :disabled="sending"
+                            class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 shrink-0"
+                            x-text="sending ? 'Menghantar…' : 'Hantar'"></button>
+                    </form>
+                </div>
             </div>
         </template>
         <template x-if="!selected">
@@ -126,6 +136,7 @@
 function conversationsPage() {
     return {
         q: '', rows: [], selected: null, messages: [], draft: '',
+        sending: false, sendError: '',
         filter: 'all',
         flag: {aiEnabled: true, humanTakeover: false, status: 'open', pinned: false},
         filters: [
@@ -201,15 +212,40 @@ function conversationsPage() {
             }
         },
         async send() {
-            if (!this.draft.trim() || !this.selected) return;
+            if (!this.draft.trim() || !this.selected || this.sending) return;
+            this.sending = true;
+            this.sendError = '';
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-            const r = await fetch('/admin/whatsapp-agent/api/send', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
-                body: JSON.stringify({phone: this.selected.phone, message: this.draft}),
-            });
-            if (r.ok) { this.draft = ''; await this.select(this.selected); }
+            const text = this.draft;
+            try {
+                const r = await fetch('/admin/whatsapp-agent/api/send', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
+                    body: JSON.stringify({phone: this.selected.phone, message: text}),
+                });
+                if (r.ok) {
+                    this.draft = '';           // clear only on confirmed success
+                    const d = await r.json().catch(() => ({}));
+                    if (d.via === 'wasender' && d.message) {
+                        // Sent directly via WaSenderAPI — not in the bot thread yet,
+                        // so append optimistically instead of reloading (which would drop it).
+                        this.messages.push(d.message);
+                        this.$nextTick(() => { this.$refs.thread.scrollTop = this.$refs.thread.scrollHeight; });
+                    } else {
+                        await this.select(this.selected);   // bot recorded it — reload canonical thread
+                    }
+                } else {
+                    // Keep the draft so staff don't lose their message; show why it failed.
+                    let msg = `Gagal hantar (HTTP ${r.status}).`;
+                    try { const d = await r.json(); if (d.error) msg = d.error; } catch (e) {}
+                    this.sendError = msg;
+                }
+            } catch (e) {
+                this.sendError = 'Gagal hantar — masalah rangkaian. Cuba lagi.';
+            } finally {
+                this.sending = false;
+            }
         },
         bubbleClass(m) {
             if (m.direction === 'in') return 'bg-white text-gray-900 rounded-tl-none';
