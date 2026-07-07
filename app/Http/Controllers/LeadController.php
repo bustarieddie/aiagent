@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LeadAssignment;
+use App\Models\StaffMember;
 use App\Services\BotApi;
 use App\Services\LeadClassifier;
+use App\Services\LeadDistributor;
 use Illuminate\Http\Request;
 
 class LeadController extends Controller {
@@ -13,8 +16,42 @@ class LeadController extends Controller {
 
     public function list(Request $request, BotApi $bot) {
         $resp = $bot->get('/admin/api/leads', $request->query());
-        return response($resp->body(), $resp->status())
-            ->header('Content-Type', 'application/json');
+        if (!$resp->ok()) {
+            return response($resp->body(), $resp->status())
+                ->header('Content-Type', 'application/json');
+        }
+        $payload = $resp->json();
+        $leads = $payload['leads'] ?? [];
+        $phones = collect($leads)->pluck('phone')->filter()->all();
+
+        // Assignment overlay
+        $assignments = LeadAssignment::with('staff:id,name')
+            ->whereIn('phone', $phones)
+            ->get()->keyBy('phone');
+
+        // Optional filter: assigned_to (staff id, "0" = unassigned)
+        $filterAssigned = $request->query('assigned_to');
+        if ($filterAssigned !== null && $filterAssigned !== '') {
+            $wantUnassigned = (string) $filterAssigned === '0';
+            $leads = array_values(array_filter($leads, function ($l) use ($assignments, $filterAssigned, $wantUnassigned) {
+                $a = $assignments[$l['phone']] ?? null;
+                if ($wantUnassigned) return !$a || !$a->staff_member_id;
+                return $a && (string) $a->staff_member_id === (string) $filterAssigned;
+            }));
+        }
+
+        $enriched = collect($leads)->map(function ($l) use ($assignments) {
+            $a = $assignments[$l['phone']] ?? null;
+            $l['assigned_to'] = $a && $a->staff ? [
+                'id' => $a->staff->id,
+                'name' => $a->staff->name,
+                'method' => $a->method,
+            ] : null;
+            return $l;
+        })->values();
+
+        $payload['leads'] = $enriched;
+        return response()->json($payload);
     }
 
     public function update(Request $request, string $phone, BotApi $bot) {
@@ -117,5 +154,48 @@ class LeadController extends Controller {
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Bulk round-robin distribute across active staff. */
+    public function distribute(Request $request, BotApi $bot, LeadDistributor $distributor) {
+        $data = $request->validate([
+            'scope' => 'in:unassigned,all',           // which phones to consider
+            'filter' => 'array',                       // tier/stage/service filter to narrow
+            'override' => 'boolean',                   // overwrite existing assignments
+        ]);
+        $scope = $data['scope'] ?? 'unassigned';
+        $filter = $data['filter'] ?? [];
+        $override = (bool) ($data['override'] ?? false);
+
+        $resp = $bot->get('/admin/api/leads', $filter + ['limit' => 5000]);
+        if (!$resp->ok()) return response()->json(['error' => 'bot API failed'], 502);
+        $phones = collect($resp->json()['leads'] ?? [])
+            ->pluck('phone')->filter()->unique()->values()->all();
+
+        if ($scope === 'unassigned') {
+            $already = LeadAssignment::whereIn('phone', $phones)
+                ->whereNotNull('staff_member_id')->pluck('phone')->all();
+            $phones = array_values(array_diff($phones, $already));
+        }
+
+        $result = $distributor->distribute($phones, $override);
+        return response()->json($result + ['total' => count($phones)]);
+    }
+
+    /** Manual assign / unassign a single lead. */
+    public function assign(Request $request, string $phone) {
+        $data = $request->validate([
+            'staff_member_id' => 'nullable|integer|exists:staff_members,id',
+        ]);
+        $sid = $data['staff_member_id'] ?? null;
+        LeadAssignment::updateOrCreate(
+            ['phone' => $phone],
+            ['staff_member_id' => $sid, 'method' => 'manual', 'assigned_at' => now()],
+        );
+        // Refresh cached counts
+        foreach (StaffMember::all() as $s) {
+            $s->update(['assigned_count' => LeadAssignment::where('staff_member_id', $s->id)->count()]);
+        }
+        return response()->json(['ok' => true, 'phone' => $phone, 'staff_member_id' => $sid]);
     }
 }

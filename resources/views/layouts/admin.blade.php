@@ -26,6 +26,7 @@
                         ['admin.panels',         'Panels',         '🏥'],
                         ['admin.broadcast',      'Broadcast',      '📣'],
                         ['admin.automation',     'Automation',     '🤖'],
+                        ['admin.staff',          'Staff',          '🧑‍💼'],
                     ];
                 @endphp
                 @foreach ($nav as [$route, $label, $icon])

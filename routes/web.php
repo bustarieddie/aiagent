@@ -10,6 +10,7 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
 
 // Public — landing shortcut
@@ -36,6 +37,7 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
 
     Route::get('/automation', [AutomationController::class, 'index'])->name('automation');
     Route::get('/broadcast', [BroadcastController::class, 'index'])->name('broadcast');
+    Route::get('/staff', [StaffController::class, 'index'])->name('staff');
 
     // JSON API for the Blade pages' inline fetch calls
     Route::prefix('api')->group(function () {
@@ -50,8 +52,17 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::get('/leads', [LeadController::class, 'list']);
         Route::get('/leads/export', [LeadController::class, 'export']);
         Route::get('/leads/classifiable', [LeadController::class, 'classifiable']);
+        Route::post('/leads/distribute', [LeadController::class, 'distribute']);
         Route::post('/leads/{phone}/classify', [LeadController::class, 'classifyOne'])->where('phone', '.*');
+        Route::post('/leads/{phone}/assign', [LeadController::class, 'assign'])->where('phone', '.*');
         Route::patch('/leads/{phone}', [LeadController::class, 'update'])->where('phone', '.*');
+
+        // Staff members
+        Route::get('/staff', [StaffController::class, 'list']);
+        Route::post('/staff', [StaffController::class, 'store']);
+        Route::patch('/staff/{staff}', [StaffController::class, 'update']);
+        Route::post('/staff/{staff}/toggle', [StaffController::class, 'toggle']);
+        Route::delete('/staff/{staff}', [StaffController::class, 'destroy']);
 
         Route::get('/patients', [PatientController::class, 'list']);
         Route::get('/patients/{phone}', [PatientController::class, 'detail'])->where('phone', '.*');
