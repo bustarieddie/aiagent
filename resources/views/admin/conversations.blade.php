@@ -273,8 +273,21 @@ function conversationsPage() {
         },
         parseTs(v) {
             if (!v) return null;
-            if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(v)) {
-                v = v.replace(' ', 'T') + 'Z';
+            if (typeof v === 'string') {
+                // Match "YYYY-MM-DD HH:MM(:SS)(.ffff)" optionally with a T separator
+                // and an optional trailing timezone (Z or ±HH:MM).
+                const m = v.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/);
+                if (m) {
+                    if (m[7]) {
+                        // Explicit offset/Z (e.g. our WaSender fallback) — parse as absolute.
+                        const d = new Date(v.replace(' ', 'T'));
+                        return isNaN(d.getTime()) ? null : d;
+                    }
+                    // Naive timestamp from the Python bot = Malaysia wall-clock (UTC+8).
+                    // Build the matching absolute instant so MYT display shows it verbatim.
+                    const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) - 8 * 3600 * 1000;
+                    return new Date(ms);
+                }
             }
             if (typeof v === 'number' && v < 1e12) v = v * 1000;
             const d = new Date(v);
