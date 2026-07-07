@@ -51,15 +51,35 @@ class ConversationController extends Controller {
         return response()->json($enriched);
     }
 
-    /** JSON API: send a manual staff reply. */
+    /** JSON API: send a manual staff reply (works regardless of AI / takeover state). */
     public function send(Request $request, BotApi $bot) {
         $data = $request->validate([
             'phone' => 'required|string',
             'message' => 'required|string',
         ]);
-        $resp = $bot->post('/inbox/send', $data + ['source' => 'staff']);
+
+        try {
+            $resp = $bot->post('/inbox/send', $data + ['source' => 'staff']);
+        } catch (\Throwable $e) {
+            // Bot unreachable / timeout — return clean JSON so the UI can surface it
+            // instead of a 500 HTML page that the frontend can't parse.
+            return response()->json([
+                'ok' => false,
+                'error' => 'Bot tidak dapat dihubungi. Mesej tidak dihantar.',
+                'detail' => $e->getMessage(),
+            ], 502);
+        }
+
+        if (!$resp->ok()) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Bot menolak mesej (HTTP ' . $resp->status() . ').',
+                'detail' => $resp->body(),
+            ], $resp->status());
+        }
+
         return response($resp->body(), $resp->status())
-            ->header('Content-Type', 'application/json');
+            ->header('Content-Type', $resp->header('Content-Type', 'application/json'));
     }
 
     /** DELETE — nuke entire conversation (bot wipes DB + files, portal clears flag). */

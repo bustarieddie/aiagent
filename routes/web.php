@@ -60,6 +60,7 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::post('/automation', [AutomationController::class, 'store']);
         Route::patch('/automation/{rule}', [AutomationController::class, 'update']);
         Route::post('/automation/{rule}/toggle', [AutomationController::class, 'toggle']);
+        Route::post('/automation/{rule}/settings', [AutomationController::class, 'saveSettings']);
         Route::delete('/automation/{rule}', [AutomationController::class, 'destroy']);
     });
 });

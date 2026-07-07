@@ -26,8 +26,38 @@ class AutomationController extends Controller {
                 'runs_last_7d' => $r->runs_last_7d,
                 'sent_last_7d' => $r->sent_last_7d,
                 'last_fired_at' => optional($r->last_fired_at)->diffForHumans(),
+                'settings_fields' => $r->settingsFields(),
+                'settings' => $r->settingsWithDefaults(),
             ]);
         return response()->json(['rules' => $rules]);
+    }
+
+    public function saveSettings(Request $request, AutomationRule $rule) {
+        $fields = $rule->settingsFields();
+        if (empty($fields)) {
+            return response()->json(['error' => 'This automation has no settings'], 422);
+        }
+
+        $incoming = (array) $request->input('settings', []);
+        $clean = [];
+        foreach ($fields as $field) {
+            $key = $field['key'];
+            if (!array_key_exists($key, $incoming)) {
+                continue;
+            }
+            $value = $incoming[$key];
+            $clean[$key] = match ($field['type']) {
+                'toggle' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+                'number' => is_numeric($value) ? $value + 0 : ($field['default'] ?? 0),
+                default  => is_scalar($value) ? (string) $value : '',
+            };
+        }
+
+        $rule->update(['settings' => $clean]);
+        return response()->json([
+            'ok' => true,
+            'settings' => $rule->settingsWithDefaults(),
+        ]);
     }
 
     public function store(Request $request) {

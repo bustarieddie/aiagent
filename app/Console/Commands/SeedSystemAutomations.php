@@ -83,14 +83,26 @@ class SeedSystemAutomations extends Command {
             ],
         ];
 
+        $schema = AutomationRule::settingsSchema();
+
         foreach ($rules as $r) {
+            // Build default settings from the schema (idempotent, only fills missing keys).
+            $defaults = [];
+            foreach ($schema[$r['slug']] ?? [] as $field) {
+                $defaults[$field['key']] = $field['default'] ?? null;
+            }
+
+            $existing = AutomationRule::where('slug', $r['slug'])->first();
+            $settings = array_merge($defaults, $existing?->settings ?? []);
+
             AutomationRule::updateOrCreate(
                 ['slug' => $r['slug']],
                 array_merge($r, [
                     'is_system' => true,
-                    'is_active' => false,
+                    'is_active' => $existing->is_active ?? false,
                     'trigger_config' => [],
                     'action_config' => [],
+                    'settings' => $settings,
                 ]),
             );
             $this->line("  {$r['icon']}  {$r['name']}");
