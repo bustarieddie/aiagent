@@ -11,6 +11,11 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\StaffController;
+// --- Klinik FM Report module ---
+use App\Http\Controllers\DataSubjectController;
+use App\Http\Controllers\LabReportController;
+use App\Livewire\ReviewLabReport;
+use App\Livewire\UploadLabReport;
 use Illuminate\Support\Facades\Route;
 
 // Public — landing shortcut
@@ -101,3 +106,24 @@ Route::middleware('admin.auth')->prefix('admin/whatsapp-agent')->name('admin.')-
         Route::delete('/templates/{template}', [BroadcastController::class, 'destroyTemplate']);
     });
 });
+
+// ============================================================
+// Klinik FM Report module — appended during integration.
+// NOTE: uses Laravel's standard ['auth','verified'] guard, not this
+// app's custom 'admin.auth' middleware. Reconcile the auth guard
+// before going live (see SETUP_PROMPTS.md / next steps).
+// ============================================================
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/lab-reports/upload', UploadLabReport::class)->name('lab-reports.upload');
+    // Clinician review-and-confirm gate (draft -> reviewed).
+    Route::get('/lab-reports/{labReport}/review', ReviewLabReport::class)->name('lab-reports.review');
+    Route::get('/lab-reports/{labReport}', [LabReportController::class, 'show'])->name('lab-reports.show');
+    Route::get('/lab-reports/{labReport}/pdf/{edition}', [LabReportController::class, 'pdf'])->name('lab-reports.pdf');
+
+    // PDPA data-subject rights (s.30-43 + portability).
+    Route::get('/patients/{patient}/export', [DataSubjectController::class, 'export'])->name('patients.export');
+    Route::post('/patients/{patient}/withdraw', [DataSubjectController::class, 'withdraw'])->name('patients.withdraw');
+    Route::delete('/patients/{patient}', [DataSubjectController::class, 'erase'])->name('patients.erase');
+});
+
+Route::view('/privacy', 'privacy')->name('privacy'); // PDPA s.7, bilingual
