@@ -14,3 +14,6 @@ Schedule::command('telegram:monitor')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+// --- Klinik FM Report module: PDPA retention purge (daily 03:00) ---
+Schedule::command('pdpa:purge')->dailyAt('03:00');
