@@ -94,6 +94,7 @@
                     <th class="px-3 py-2 font-medium">Ditugaskan</th>
                     <th class="px-3 py-2 font-medium">Score</th>
                     <th class="px-3 py-2 font-medium">Last message</th>
+                    <th class="px-3 py-2 font-medium">Terakhir ↓</th>
                     <th class="px-3 py-2 font-medium"></th>
                 </tr>
             </thead>
@@ -133,13 +134,14 @@
                         </td>
                         <td class="px-3 py-2 text-xs" x-text="l.lead_score ?? '—'"></td>
                         <td class="px-3 py-2 text-xs text-gray-600 max-w-xs truncate" x-text="l.last_message ?? '—'"></td>
+                        <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap" x-text="fmtWhen(l)"></td>
                         <td class="px-3 py-2 text-right">
                             <a :href="`/admin/whatsapp-agent/conversations?phone=${encodeURIComponent(l.phone)}`" class="text-emerald-700 hover:underline text-xs">Open chat →</a>
                         </td>
                     </tr>
                 </template>
                 <tr x-show="!rows.length">
-                    <td colspan="8" class="px-3 py-6 text-center text-gray-400">Tiada lead.</td>
+                    <td colspan="9" class="px-3 py-6 text-center text-gray-400">Tiada lead.</td>
                 </tr>
             </tbody>
         </table>
@@ -167,8 +169,33 @@ function leadsPage() {
             url.searchParams.set('limit', '200');
             const r = await fetch(url, {credentials: 'same-origin'});
             const d = await r.json();
-            this.rows = d.leads || [];
+            this.rows = this.sortByRecent(d.leads || []);
             if (!this.staffList.length) await this.loadStaff();
+        },
+        // Always show newest activity first, and keep it that way on every load.
+        sortByRecent(leads) {
+            return [...leads].sort((a, b) => this.leadTs(b) - this.leadTs(a));
+        },
+        // Parse a lead's most recent timestamp (naive strings are Malaysia time).
+        parseMY(v) {
+            if (!v) return null;
+            if (typeof v === 'number') return new Date(v < 1e12 ? v * 1000 : v);
+            const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+            if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) - 8 * 3600 * 1000);
+            const t = Date.parse(v);
+            return isNaN(t) ? null : new Date(t);
+        },
+        recentValue(l) {
+            return l.last_interaction || l.last_ts || l.updated_at || l.last_message_at || l.last_message_ts || l.created_at || l.first_seen || null;
+        },
+        leadTs(l) {
+            const d = this.parseMY(this.recentValue(l));
+            return d ? d.getTime() : 0;
+        },
+        fmtWhen(l) {
+            const d = this.parseMY(this.recentValue(l));
+            if (!d) return '—';
+            return d.toLocaleString('ms-MY', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur'});
         },
         async loadStaff() {
             const r = await fetch('/admin/whatsapp-agent/api/staff', {credentials: 'same-origin'});
