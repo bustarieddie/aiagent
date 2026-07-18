@@ -109,7 +109,7 @@
                             <span :class="tierColor(l.lead_tier)" class="text-xs px-2 py-0.5 rounded-full" x-text="l.lead_tier || '—'"></span>
                         </td>
                         <td class="px-3 py-2">
-                            <select @change="updateField(l, 'stage', $event.target.value)" class="text-xs border border-gray-200 rounded px-2 py-1 bg-white">
+                            <select @change="updateField(l, 'crm_stage', $event.target.value)" class="text-xs border border-gray-200 rounded px-2 py-1 bg-white">
                                 <template x-for="s in ['new_lead','contacted','qualified','appointment_offered','appointment_booked','not_interested']" :key="s">
                                     <option :value="s" :selected="s === l.crm_stage" x-text="s"></option>
                                 </template>
@@ -312,12 +312,17 @@ function leadsPage() {
         },
         async updateField(l, field, value) {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-            await fetch(`/admin/whatsapp-agent/api/leads/${encodeURIComponent(l.phone)}`, {
+            const r = await fetch(`/admin/whatsapp-agent/api/leads/${encodeURIComponent(l.phone)}`, {
                 method: 'PATCH',
                 credentials: 'same-origin',
                 headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
-                body: JSON.stringify({[field === 'stage' ? 'stage' : field]: value}),
+                body: JSON.stringify({[field]: value}),
             });
+            if (r.ok) {
+                l[field] = value;   // reflect locally so it persists on this view
+            } else {
+                alert('Gagal simpan perubahan. Cuba lagi.');
+            }
         },
         tierColor(t) {
             return t === 'hot' ? 'bg-rose-100 text-rose-700' :
