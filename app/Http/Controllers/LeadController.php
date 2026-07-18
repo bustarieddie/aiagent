@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LeadAssignment;
+use App\Models\LeadOverride;
 use App\Models\StaffMember;
 use App\Services\BotApi;
 use App\Services\LeadClassifier;
@@ -15,7 +16,12 @@ class LeadController extends Controller {
     }
 
     public function list(Request $request, BotApi $bot) {
-        $resp = $bot->get('/admin/api/leads', $request->query());
+        // Stage is filtered locally (below) so it respects local overrides, which
+        // the bot doesn't know about — don't let the bot pre-filter by stage.
+        $botQuery = $request->query();
+        unset($botQuery['stage']);
+
+        $resp = $bot->get('/admin/api/leads', $botQuery);
         if (!$resp->ok()) {
             return response($resp->body(), $resp->status())
                 ->header('Content-Type', 'application/json');
@@ -23,6 +29,22 @@ class LeadController extends Controller {
         $payload = $resp->json();
         $leads = $payload['leads'] ?? [];
         $phones = collect($leads)->pluck('phone')->filter()->all();
+
+        // crm_stage override overlay — a staff-set stage wins over the bot's.
+        $overrides = LeadOverride::whereIn('phone', $phones)->get()->keyBy('phone');
+        $leads = array_map(function ($l) use ($overrides) {
+            $o = $overrides[$l['phone']] ?? null;
+            if ($o && $o->crm_stage) {
+                $l['crm_stage'] = $o->crm_stage;
+            }
+            return $l;
+        }, $leads);
+
+        // Apply the stage filter locally against the effective (overridden) stage.
+        $stageFilter = $request->query('stage');
+        if ($stageFilter !== null && $stageFilter !== '') {
+            $leads = array_values(array_filter($leads, fn ($l) => ($l['crm_stage'] ?? '') === $stageFilter));
+        }
 
         // Assignment overlay
         $assignments = LeadAssignment::with('staff:id,name')
@@ -55,9 +77,29 @@ class LeadController extends Controller {
     }
 
     public function update(Request $request, string $phone, BotApi $bot) {
-        $resp = $bot->patch('/admin/api/leads/' . urlencode($phone), $request->all());
-        return response($resp->body(), $resp->status())
-            ->header('Content-Type', 'application/json');
+        $data = $request->all();
+
+        // Persist crm_stage as a local override so a staff-set stage sticks even
+        // though the bot re-derives (and overwrites) stage from conversation AI.
+        if (array_key_exists('crm_stage', $data)) {
+            LeadOverride::updateOrCreate(
+                ['phone' => $phone],
+                ['crm_stage' => $data['crm_stage']],
+            );
+        }
+
+        // Best-effort forward to the bot so other fields (e.g. service_interested)
+        // still update there; the local override already guarantees stage sticks.
+        try {
+            $resp = $bot->patch('/admin/api/leads/' . urlencode($phone), $data);
+            if ($resp->ok()) {
+                return response($resp->body(), 200)->header('Content-Type', 'application/json');
+            }
+        } catch (\Throwable) {
+            // ignore — the local override is saved regardless
+        }
+
+        return response()->json(['ok' => true]);
     }
 
     /** Return phones needing classification (no service_interested yet, unless force). */
