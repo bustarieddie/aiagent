@@ -94,7 +94,6 @@
                     <th class="px-3 py-2 font-medium">Ditugaskan</th>
                     <th class="px-3 py-2 font-medium">Score</th>
                     <th class="px-3 py-2 font-medium">Last message</th>
-                    <th class="px-3 py-2 font-medium">Terakhir ↓</th>
                     <th class="px-3 py-2 font-medium"></th>
                 </tr>
             </thead>
@@ -104,6 +103,9 @@
                         <td class="px-3 py-2">
                             <div class="font-medium text-gray-900" x-text="l.name || '—'"></div>
                             <div class="text-xs text-gray-500 font-mono" x-text="l.phone"></div>
+                            <div class="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                <span>🕐</span><span x-text="fmtWhen(l)"></span>
+                            </div>
                         </td>
                         <td class="px-3 py-2">
                             <span :class="tierColor(l.lead_tier)" class="text-xs px-2 py-0.5 rounded-full" x-text="l.lead_tier || '—'"></span>
@@ -134,14 +136,13 @@
                         </td>
                         <td class="px-3 py-2 text-xs" x-text="l.lead_score ?? '—'"></td>
                         <td class="px-3 py-2 text-xs text-gray-600 max-w-xs truncate" x-text="l.last_message ?? '—'"></td>
-                        <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap" x-text="fmtWhen(l)"></td>
                         <td class="px-3 py-2 text-right">
                             <a :href="`/admin/whatsapp-agent/conversations?phone=${encodeURIComponent(l.phone)}`" class="text-emerald-700 hover:underline text-xs">Open chat →</a>
                         </td>
                     </tr>
                 </template>
                 <tr x-show="!rows.length">
-                    <td colspan="9" class="px-3 py-6 text-center text-gray-400">Tiada lead.</td>
+                    <td colspan="8" class="px-3 py-6 text-center text-gray-400">Tiada lead.</td>
                 </tr>
             </tbody>
         </table>
