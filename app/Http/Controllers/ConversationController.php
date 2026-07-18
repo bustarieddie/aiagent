@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ConversationFlag;
+use App\Models\LeadOverride;
 use App\Models\StaffMessage;
 use App\Services\BotApi;
 use App\Services\WaSenderClient;
@@ -36,8 +37,10 @@ class ConversationController extends Controller {
         $convos = $payload['conversations'] ?? (is_array($payload) ? $payload : []);
         $phones = collect($convos)->pluck('phone')->filter()->unique()->all();
         $flags = ConversationFlag::whereIn('phone', $phones)->get()->keyBy('phone');
+        // Same crm_stage override as the Leads page, so both views stay in sync.
+        $overrides = LeadOverride::whereIn('phone', $phones)->get()->keyBy('phone');
 
-        $enriched = collect($convos)->map(function ($row) use ($flags) {
+        $enriched = collect($convos)->map(function ($row) use ($flags, $overrides) {
             $flag = $flags[$row['phone']] ?? null;
             $row['flag'] = $flag ? [
                 'aiEnabled' => (bool) $flag->ai_enabled,
@@ -49,6 +52,10 @@ class ConversationController extends Controller {
                 'aiEnabled' => true, 'humanTakeover' => false,
                 'status' => 'open', 'pinned' => false, 'staffTags' => null,
             ];
+            $o = $overrides[$row['phone']] ?? null;
+            if ($o && $o->crm_stage) {
+                $row['crm_stage'] = $o->crm_stage;
+            }
             return $row;
         })->values();
 
