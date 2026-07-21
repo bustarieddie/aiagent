@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Conversations')
 @section('content')
-<div class="h-[calc(100vh-56px)] flex" x-data="conversationsPage()" x-init="load()">
+<div class="h-[calc(100vh-56px)] flex" x-data="conversationsPage()" x-init="init()">
 
     {{-- Left: conversation list --}}
     <section class="w-96 shrink-0 border-r border-gray-200 bg-white flex flex-col">
@@ -146,6 +146,22 @@ function conversationsPage() {
             {key: 'unread',   label: 'Unread'},
             {key: 'closed',   label: 'Closed'},
         ],
+        async init() {
+            await this.load();
+            // Auto-select conversation from ?phone=... (came from Leads "Open chat")
+            const params = new URLSearchParams(window.location.search);
+            const wanted = params.get('phone');
+            if (!wanted) return;
+            const normalized = wanted.startsWith('+') ? wanted : '+' + wanted.replace(/^0+/, '60');
+            let target = this.rows.find(c => c.phone === wanted)
+                     || this.rows.find(c => c.phone === normalized)
+                     || this.rows.find(c => (c.phone || '').replace(/\D/g, '').endsWith((wanted || '').replace(/\D/g, '').slice(-8)));
+            if (!target) {
+                // Not in the loaded 200 — synthesize a minimal row + let select() fetch messages
+                target = {phone: normalized, name: null};
+            }
+            await this.select(target);
+        },
         async load() {
             const url = new URL('/admin/whatsapp-agent/api/conversations', window.location.origin);
             if (this.q.trim()) url.searchParams.set('q', this.q.trim());
