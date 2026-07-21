@@ -21,7 +21,7 @@
             </div>
         </div>
         <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
-            <template x-for="(c, i) in filteredRows()" :key="c.phone || ('__idx_' + i)">
+            <template x-for="(c, i) in rows.filter(x => x && (filter === 'all' || matchFilter(x, filter)))" :key="i">
                 <div @click="select(c)" :class="selected?.phone === c.phone ? 'bg-emerald-50' : 'hover:bg-gray-50'" class="px-4 py-3 cursor-pointer">
                     <div class="flex justify-between items-baseline gap-2">
                         <div class="font-medium text-gray-900 text-sm truncate" x-text="c.name || c.phone"></div>
@@ -37,7 +37,7 @@
                     </div>
                 </div>
             </template>
-            <div x-show="!filteredRows().length" class="p-8 text-center text-sm text-gray-400">Tiada conversation.</div>
+            <div x-show="rows.length === 0" class="p-8 text-center text-sm text-gray-400">Tiada conversation.</div>
         </div>
     </section>
 
