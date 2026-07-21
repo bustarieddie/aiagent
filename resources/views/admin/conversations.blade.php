@@ -21,7 +21,7 @@
             </div>
         </div>
         <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
-            <template x-for="c in filteredRows()" :key="c.phone">
+            <template x-for="(c, i) in filteredRows()" :key="c.phone || ('__idx_' + i)">
                 <div @click="select(c)" :class="selected?.phone === c.phone ? 'bg-emerald-50' : 'hover:bg-gray-50'" class="px-4 py-3 cursor-pointer">
                     <div class="flex justify-between items-baseline gap-2">
                         <div class="font-medium text-gray-900 text-sm truncate" x-text="c.name || c.phone"></div>
@@ -185,8 +185,10 @@ function conversationsPage() {
             }
         },
         filteredRows() {
-            if (this.filter === 'all') return this.rows;
-            return this.rows.filter(c => this.matchFilter(c, this.filter));
+            const base = this.filter === 'all' ? this.rows : this.rows.filter(c => this.matchFilter(c, this.filter));
+            // Defensive: skip any nullish/malformed rows so Alpine's x-for doesn't
+            // silently bail on a bad key or property access.
+            return base.filter(c => c && typeof c === 'object');
         },
         async select(c) {
             this.selected = c;
@@ -327,14 +329,16 @@ function conversationsPage() {
         // Smart stamp for the conversation list: time if today, "Semalam HH:MM" if
         // yesterday, else "DD/MM/YY HH:MM" — so the date shows once it isn't today.
         formatStamp(v) {
-            const d = this.parseTs(v);
-            if (!d) return '';
-            const time = this.formatTime(v);
-            const now = new Date();
-            const day = this.myDay(d);
-            if (day === this.myDay(now)) return time;
-            if (day === this.myDay(new Date(now.getTime() - 86400000))) return 'Semalam ' + time;
-            return d.toLocaleDateString('ms-MY', {day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Asia/Kuala_Lumpur'}) + ' ' + time;
+            try {
+                const d = this.parseTs(v);
+                if (!d) return '';
+                const time = this.formatTime(v);
+                const now = new Date();
+                const day = this.myDay(d);
+                if (day === this.myDay(now)) return time;
+                if (day === this.myDay(new Date(now.getTime() - 86400000))) return 'Semalam ' + time;
+                return d.toLocaleDateString('ms-MY', {day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Asia/Kuala_Lumpur'}) + ' ' + time;
+            } catch (e) { return ''; }
         },
         formatDate(v) {
             const d = this.parseTs(v);
