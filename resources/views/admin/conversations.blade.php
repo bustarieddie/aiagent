@@ -235,43 +235,65 @@ function conversationsPage() {
             this.sendError = '';
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
             const text = this.draft;
+            const phone = this.selected.phone;
+
+            // Optimistic append — user sees the bubble immediately, then we
+            // reconcile with the server response. This makes the chat feel
+            // responsive even if the bot API is slow or unreachable.
+            const optimistic = {
+                direction: 'out',
+                source: 'staff',
+                body: text,
+                timestamp: new Date().toISOString(),
+                _pending: true,
+            };
+            this.messages.push(optimistic);
+            this.draft = '';
+            this.$nextTick(() => { if (this.$refs.thread) this.$refs.thread.scrollTop = this.$refs.thread.scrollHeight; });
+
             try {
                 const r = await fetch('/admin/whatsapp-agent/api/send', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
-                    body: JSON.stringify({phone: this.selected.phone, message: text}),
+                    body: JSON.stringify({phone, message: text}),
                 });
+                const raw = await r.text();
+                let d = {};
+                try { d = raw ? JSON.parse(raw) : {}; } catch (e) { d = {_raw: raw}; }
+
                 if (r.ok) {
-                    this.draft = '';           // clear only on confirmed success
-                    const d = await r.json().catch(() => ({}));
                     if (d.via === 'wasender' && d.message) {
-                        // Sent directly via WaSenderAPI — not in the bot thread yet,
-                        // so append optimistically instead of reloading (which would drop it).
-                        this.messages.push(d.message);
-                        this.$nextTick(() => { this.$refs.thread.scrollTop = this.$refs.thread.scrollHeight; });
+                        // Replace optimistic with server-supplied stamp.
+                        Object.assign(optimistic, d.message, {_pending: false});
                     } else {
-                        await this.select(this.selected);   // bot recorded it — reload canonical thread
+                        // Bot recorded it — refresh canonical thread (drops optimistic).
+                        await this.select({phone, name: this.selected.name});
                     }
                 } else {
-                    // Keep the draft so staff don't lose their message; show why it failed.
-                    let msg = `Gagal hantar (HTTP ${r.status}).`;
-                    try { const d = await r.json(); if (d.error) msg = d.error; } catch (e) {}
-                    this.sendError = msg;
+                    optimistic._pending = false;
+                    optimistic._failed = true;
+                    this.sendError = d.error || d.detail || `Gagal hantar (HTTP ${r.status}).`;
+                    this.draft = text;  // restore so user can edit / retry
                 }
             } catch (e) {
+                optimistic._pending = false;
+                optimistic._failed = true;
                 this.sendError = 'Gagal hantar — masalah rangkaian. Cuba lagi.';
+                this.draft = text;
             } finally {
                 this.sending = false;
             }
         },
         bubbleClass(m) {
             if (m.direction === 'in') return 'bg-white text-gray-900 rounded-tl-none';
-            return m.source === 'staff' ? 'bg-blue-500 text-white rounded-tr-none' : 'text-white rounded-tr-none';
+            if (m._failed) return 'bg-rose-500 text-white rounded-tr-none';
+            const base = m.source === 'staff' ? 'bg-blue-500 text-white rounded-tr-none' : 'text-white rounded-tr-none';
+            return base + (m._pending ? ' opacity-60' : '');
         },
         bubbleStyle(m) {
             let s = 'width: fit-content; max-width: 65%;';
-            if (m.direction === 'out' && m.source !== 'staff') s += ' background-color: #005c4b;';
+            if (m.direction === 'out' && m.source !== 'staff' && !m._failed) s += ' background-color: #005c4b;';
             return s;
         },
         mediaProxy(botPath) {
