@@ -67,54 +67,67 @@ class ConversationController extends Controller {
     }
 
     /**
-     * JSON API: send a manual staff reply. Works regardless of AI / takeover state.
+     * JSON API: send a manual staff reply. Always routes through the Python bot
+     * so the patient sees the message from the same Meta number the AI uses —
+     * never from the WaSenderAPI number (that channel is OTP-only).
      *
-     * Delivery is resilient: we try the Python bot first (so it records the message
-     * in its own DB and the thread shows it), but if the bot is unreachable or
-     * rejects the request we fall back to sending the WhatsApp message directly via
-     * WaSenderAPI — the same channel used for login OTPs — so the patient still
-     * gets the reply even when the bot is down.
+     * If the bot rejects the first attempt (common when a conversation hasn't
+     * been flagged as human-takeover yet), we auto-toggle takeover on the bot
+     * side and retry once. Only after both attempts fail do we surface the
+     * error to the UI so the staff can decide what to do (usually just retry
+     * or check the bot logs).
      */
-    public function send(Request $request, BotApi $bot, WaSenderClient $wa) {
+    public function send(Request $request, BotApi $bot) {
         $data = $request->validate([
             'phone' => 'required|string',
             'message' => 'required|string',
         ]);
+        $phone = $data['phone'];
 
-        // 1) Primary: route through the bot so it persists the message + sends.
+        $sendViaBot = function () use ($bot, $data) {
+            return $bot->post('/inbox/send', $data + ['source' => 'staff']);
+        };
+
+        // First attempt.
         try {
-            $resp = $bot->post('/inbox/send', $data + ['source' => 'staff']);
+            $resp = $sendViaBot();
             if ($resp->ok()) {
-                $this->recordStaffMessage($data['phone'], $data['message']);
+                $this->recordStaffMessage($phone, $data['message']);
                 return response($resp->body(), 200)
                     ->header('Content-Type', $resp->header('Content-Type', 'application/json'));
             }
-            $botError = 'Bot menolak mesej (HTTP ' . $resp->status() . ').';
+            $firstStatus = $resp->status();
+            $firstBody = $resp->body();
         } catch (\Throwable $e) {
-            $botError = 'Bot tidak dapat dihubungi (' . $e->getMessage() . ').';
-        }
-
-        // 2) Fallback: send the WhatsApp message directly via WaSenderAPI.
-        if ($wa->sendText($data['phone'], $data['message'])) {
-            $this->recordStaffMessage($data['phone'], $data['message']);
             return response()->json([
-                'ok' => true,
-                'via' => 'wasender',
-                'note' => 'Dihantar terus via WaSenderAPI (bot tidak tersedia). Mesej mungkin tidak tersimpan dalam thread bot.',
-                'message' => [
-                    'direction' => 'out',
-                    'source' => 'staff',
-                    'body' => $data['message'],
-                    'timestamp' => now()->toIso8601String(),
-                ],
-            ]);
+                'ok' => false,
+                'error' => 'Bot tidak dapat dihubungi. Periksa bot service.',
+                'detail' => $e->getMessage(),
+            ], 502);
         }
 
-        // 3) Both paths failed.
+        // Retry once after auto-enabling human takeover — bot often refuses
+        // staff replies on conversations still under AI control.
+        try {
+            $bot->post('/inbox/takeover/' . urlencode($phone), ['takeover' => true]);
+            $resp = $sendViaBot();
+            if ($resp->ok()) {
+                ConversationFlag::updateOrCreate(
+                    ['phone' => $phone],
+                    ['human_takeover' => true, 'ai_enabled' => false],
+                );
+                $this->recordStaffMessage($phone, $data['message']);
+                return response($resp->body(), 200)
+                    ->header('Content-Type', $resp->header('Content-Type', 'application/json'));
+            }
+        } catch (\Throwable) {
+            // fall through to error response
+        }
+
         return response()->json([
             'ok' => false,
-            'error' => 'Mesej gagal dihantar. Bot & WaSenderAPI kedua-duanya tidak tersedia.',
-            'detail' => $botError,
+            'error' => "Bot menolak mesej (HTTP {$firstStatus}). Cuba enable Human Takeover manually + retry, atau check bot log.",
+            'detail' => is_string($firstBody) ? substr($firstBody, 0, 300) : null,
         ], 502);
     }
 
