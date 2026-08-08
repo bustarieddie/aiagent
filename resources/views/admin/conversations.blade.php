@@ -94,9 +94,22 @@
                             <div :class="m.direction === 'in' ? 'justify-start' : 'justify-end'" class="flex items-start">
                                 <div :class="bubbleClass(m)" :style="bubbleStyle(m)" class="rounded-lg px-2 py-1 shadow-sm inline-block">
                                     <template x-if="m.media_url">
-                                        <img :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md mb-1 object-contain bg-black/5" />
+                                        <div class="mb-1">
+                                            <template x-if="mediaKind(m) === 'image'">
+                                                <img :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md object-contain bg-black/5" />
+                                            </template>
+                                            <template x-if="mediaKind(m) === 'audio'">
+                                                <audio controls preload="none" :src="mediaProxy(m.media_url)" class="max-w-[240px] w-full"></audio>
+                                            </template>
+                                            <template x-if="mediaKind(m) === 'video'">
+                                                <video controls preload="none" :src="mediaProxy(m.media_url)" class="max-w-full max-h-64 rounded-md"></video>
+                                            </template>
+                                            <template x-if="mediaKind(m) === 'file'">
+                                                <a :href="mediaProxy(m.media_url)" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs underline" :class="m.direction === 'in' ? 'text-emerald-700' : 'text-white'">📎 Buka fail</a>
+                                            </template>
+                                        </div>
                                     </template>
-                                    <div x-text="cleanBody(m.body)" class="text-sm leading-snug whitespace-pre-line break-words"></div>
+                                    <div x-show="!(m.media_url && isPlaceholderBody(m))" x-text="cleanBody(m.body)" class="text-sm leading-snug whitespace-pre-line break-words"></div>
                                     <div :class="m.direction === 'in' ? 'text-gray-400' : 'text-white/80'" class="text-[10px] mt-0.5 text-right leading-none">
                                         <span x-show="m.direction === 'out'" class="mr-1 uppercase tracking-wide" x-text="m.source === 'staff' ? 'staff' : 'bot'"></span>
                                         <span x-text="formatStampFull(msgTs(m))"></span>
@@ -298,6 +311,24 @@ function conversationsPage() {
         },
         mediaProxy(botPath) {
             return botPath.replace(/^\/admin\/api\/media\//, '/admin/whatsapp-agent/api/media/');
+        },
+        // Decide how to render an attachment: image | audio | video | file.
+        mediaKind(m) {
+            const t = (m.media_type || '').toLowerCase();
+            if (t.includes('image') || t.includes('sticker')) return 'image';
+            if (t.includes('audio') || t.includes('voice') || t.includes('ptt')) return 'audio';
+            if (t.includes('video')) return 'video';
+            if (t.includes('document') || t.includes('file')) return 'file';
+            // Fallback: infer from the file extension.
+            const u = (m.media_url || '').toLowerCase();
+            if (/\.(jpe?g|png|gif|webp|bmp)$/.test(u)) return 'image';
+            if (/\.(ogg|oga|opus|mp3|m4a|aac|wav|amr)$/.test(u)) return 'audio';
+            if (/\.(mp4|3gp|mov|webm|mkv)$/.test(u)) return 'video';
+            return 'file';
+        },
+        // True when the body is only a bracketed media placeholder like "[audio]".
+        isPlaceholderBody(m) {
+            return /^\s*\[(audio|image|video|document|sticker|media|voice|ptt)\]\s*$/i.test(m.body || '');
         },
         msgTs(m) {
             return m.timestamp || m.ts || m.created_at || m.received_at || m.sent_at || null;
