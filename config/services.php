@@ -9,7 +9,12 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
-    'resend' => ['key' => env('RESEND_API_KEY')],
+    'resend' => [
+        'key' => env('RESEND_API_KEY'),
+        // Sender for login OTP e-mails. Must be on a domain verified in the
+        // Resend dashboard. Falls back to mail.from.address when unset.
+        'from' => env('RESEND_FROM_ADDRESS'),
+    ],
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
@@ -20,12 +25,12 @@ return [
     // Klinik Bustari admin gate + bot API
     'admin_password' => env('ADMIN_PASSWORD'),
 
-    // Comma-separated whitelist of phone numbers allowed to receive OTP + login.
-    // Any Malaysian format works — 011-2233 4455, 60112233445, +60112233445.
-    // Normalized to E.164 (+60...) before comparison.
-    'allowed_phones' => env('ADMIN_ALLOWED_PHONES', ''),
+    // Comma-separated whitelist of e-mail addresses allowed to receive OTP +
+    // login. Compared case-insensitively (lower-cased + trimmed).
+    'allowed_emails' => env('ADMIN_ALLOWED_EMAILS', ''),
 
-    // WaSenderAPI — used to deliver login OTPs via WhatsApp.
+    // WaSenderAPI — still used by the bot to deliver WhatsApp conversation
+    // messages (see ConversationController). No longer used for login OTP.
     'wasender' => [
         'api_key' => env('WASENDER_API_KEY', ''),
     ],

@@ -16,41 +16,41 @@
             <p class="text-sm text-gray-500 mt-0.5">WhatsApp AI Agent Admin</p>
         </div>
 
-        @if (($stage ?? 'phone') === 'phone')
+        @if (($stage ?? 'email') === 'email')
             <form method="POST" action="{{ route('login.request') }}" class="space-y-4">
                 @csrf
                 <label class="block text-sm">
-                    <span class="text-gray-700">Nombor WhatsApp</span>
+                    <span class="text-gray-700">E-mel</span>
                     <input
-                        type="tel" name="phone" value="{{ old('phone') }}"
-                        placeholder="011-2233 4455"
-                        required autofocus
+                        type="email" name="email" value="{{ old('email') }}"
+                        placeholder="nama@klinikbustari.com"
+                        required autofocus autocomplete="email"
                         class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                 </label>
-                @error('phone')
+                @error('email')
                     <p class="text-xs text-red-600">{{ $message }}</p>
                 @enderror
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg py-2">
-                    Hantar Kod OTP via WhatsApp
+                    Hantar Kod OTP via E-mel
                 </button>
                 <p class="text-[11px] text-center text-gray-400">
-                    Kod 6-digit akan dihantar ke WhatsApp anda.
+                    Kod 6-digit akan dihantar ke e-mel anda.
                 </p>
             </form>
         @else
             <form method="POST" action="{{ route('login.verify.submit') }}" class="space-y-4">
                 @csrf
                 <p class="text-sm text-gray-600 text-center">
-                    Kod OTP dihantar ke WhatsApp<br>
-                    <strong class="text-gray-900 font-mono">{{ $phone }}</strong>
+                    Kod OTP dihantar ke e-mel<br>
+                    <strong class="text-gray-900 font-mono">{{ $email }}</strong>
                 </p>
                 <label class="block text-sm">
                     <span class="text-gray-700">6-digit code</span>
                     <input
                         type="text" name="code" maxlength="6" pattern="\d{6}" inputmode="numeric"
                         placeholder="000000"
-                        required autofocus
+                        required autofocus autocomplete="one-time-code"
                         class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-3 text-2xl text-center font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                 </label>
@@ -61,7 +61,7 @@
                     Verify & Login
                 </button>
                 <a href="{{ route('login') }}" class="block text-center text-xs text-gray-500 hover:text-gray-700">
-                    ← Guna nombor lain
+                    ← Guna e-mel lain
                 </a>
             </form>
         @endif
