@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OtpCode;
-use App\Services\WaSenderClient;
+use App\Services\ResendClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -14,31 +14,31 @@ class LoginController extends Controller {
         if ($request->session()->get('admin_authed') === true) {
             return redirect()->route('admin.dashboard');
         }
-        return view('login', ['stage' => 'phone']);
+        return view('login', ['stage' => 'email']);
     }
 
-    /** Stage 1 — validate phone, generate OTP, send via WhatsApp. */
-    public function requestOtp(Request $request, WaSenderClient $wa) {
-        $data = $request->validate(['phone' => 'required|string|min:8']);
-        $phone = $wa->normalizeE164($data['phone']);
+    /** Stage 1 — validate e-mail, generate OTP, send via Resend. */
+    public function requestOtp(Request $request, ResendClient $mailer) {
+        $data = $request->validate(['email' => 'required|string|email:rfc|max:255']);
+        $email = strtolower(trim($data['email']));
 
         // Whitelist check
-        $allowed = collect(explode(',', (string) config('services.allowed_phones', '')))
-            ->map(fn ($p) => $wa->normalizeE164(trim($p)))
+        $allowed = collect(explode(',', (string) config('services.allowed_emails', '')))
+            ->map(fn ($e) => strtolower(trim($e)))
             ->filter()
             ->values()->all();
-        if (!in_array($phone, $allowed, true)) {
+        if (!in_array($email, $allowed, true)) {
             return back()->withInput()->withErrors([
-                'phone' => 'Nombor ini tak diizinkan akses portal.',
+                'email' => 'E-mel ini tak diizinkan akses portal.',
             ]);
         }
 
-        // Rate limit — max 10 OTP per phone per hour
-        $key = 'otp:' . sha1($phone);
+        // Rate limit — max 10 OTP per e-mail per hour
+        $key = 'otp:' . sha1($email);
         if (RateLimiter::tooManyAttempts($key, 10)) {
             $seconds = RateLimiter::availableIn($key);
             return back()->withErrors([
-                'phone' => "Terlalu banyak permintaan. Cuba lagi dalam {$seconds} saat.",
+                'email' => "Terlalu banyak permintaan. Cuba lagi dalam {$seconds} saat.",
             ]);
         }
         RateLimiter::hit($key, 3600);
@@ -46,41 +46,45 @@ class LoginController extends Controller {
         // Generate 6-digit code
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         OtpCode::create([
-            'phone' => $phone,
+            'email' => $email,
             'code' => $code,
             'expires_at' => now()->addMinutes(self::TTL_MINUTES),
             'ip' => $request->ip(),
         ]);
 
-        // Send via WhatsApp
-        $msg = "🔐 Klinik Bustari Admin\n\nKod login sekali guna: *{$code}*\n\nSah selama " . self::TTL_MINUTES . " minit.\nJangan share dengan sesiapa.";
-        $ok = $wa->sendText($phone, $msg);
+        // Send via Resend
+        $subject = 'Kod Login Klinik Bustari Admin';
+        $html = view('emails.otp', [
+            'code' => $code,
+            'ttl' => self::TTL_MINUTES,
+        ])->render();
+        $ok = $mailer->sendHtml($email, $subject, $html);
         if (!$ok) {
             return back()->withInput()->withErrors([
-                'phone' => 'Gagal hantar OTP via WhatsApp. Cuba semula atau hubungi admin.',
+                'email' => 'Gagal hantar OTP via e-mel. Cuba semula atau hubungi admin.',
             ]);
         }
 
-        $request->session()->put('otp_phone', $phone);
+        $request->session()->put('otp_email', $email);
         return redirect()->route('login.verify.show');
     }
 
     public function showVerify(Request $request) {
-        if (!$request->session()->has('otp_phone')) {
+        if (!$request->session()->has('otp_email')) {
             return redirect()->route('login');
         }
         return view('login', [
             'stage' => 'verify',
-            'phone' => $request->session()->get('otp_phone'),
+            'email' => $request->session()->get('otp_email'),
         ]);
     }
 
     public function verifyOtp(Request $request) {
         $data = $request->validate(['code' => 'required|string|size:6']);
-        $phone = $request->session()->get('otp_phone');
-        if (!$phone) return redirect()->route('login');
+        $email = $request->session()->get('otp_email');
+        if (!$email) return redirect()->route('login');
 
-        $otp = OtpCode::where('phone', $phone)
+        $otp = OtpCode::where('email', $email)
             ->where('code', $data['code'])
             ->whereNull('used_at')
             ->where('expires_at', '>', now())
@@ -94,8 +98,8 @@ class LoginController extends Controller {
         $otp->update(['used_at' => now()]);
         $request->session()->regenerate();
         $request->session()->put('admin_authed', true);
-        $request->session()->put('admin_phone', $phone);
-        $request->session()->forget('otp_phone');
+        $request->session()->put('admin_email', $email);
+        $request->session()->forget('otp_email');
 
         return redirect()->route('admin.dashboard');
     }
